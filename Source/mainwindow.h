@@ -33,6 +33,7 @@ public:
     int AddPersonDetailsToPopulationTable(const std::vector<Person*> & populationList, int row);
     void ShowLogsOnOutputWindow(const outputParameters_t outputParameters);
     void ClearSimulationResults();
+    void ShowSimulationTime(const outputParameters_t & outputParameters, time_t timeDifference);
 
 private slots:
     void on_btnSimulate_clicked();

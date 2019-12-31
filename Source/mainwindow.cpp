@@ -24,27 +24,16 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-
-#if 0
-class SimulationThread: public QThread
+//---------------------------------------------------------------------------
+// Displays simulation timing
+//---------------------------------------------------------------------------
+void MainWindow::ShowSimulationTime(const outputParameters_t & outputParameters, time_t timeDifference)
 {
-    Q_OBJECT
-public:
-    void SetInputParameter(inputParameters_t simulationInputParameters)
-    {
-        m_simulationInputParameters = simulationInputParameters;
-    }
+    std::string msg = "Time elapsed: " + std::to_string(timeDifference) + " s. " + "| " +
+            "Total Population: " + std::to_string(outputParameters.totalMalePopulation + outputParameters.totalFemalePopulation);
 
-private:
-    inputParameters_t m_simulationInputParameters;
-    void run()
-    {
-        RunSimulationThread(m_simulationInputParameters);
-    }
-};
-#endif
-
-
+    ui->opSimulationTime->setText(QString::fromUtf8(msg.c_str()));
+}
 
 //---------------------------------------------------------------------------
 // On button click: Simulate
@@ -62,8 +51,10 @@ void MainWindow::on_btnSimulate_clicked()
     simulationInputParameters.avgLifeExpectancy = ui->inpAvgLifeExpectancy->displayText().toInt();
 
     // Busy indicator: START
-    //QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
+    QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
     ui->btnSimulate->setEnabled(false);
+
+    time_t startTime = time(nullptr);
 
     // Execute simulation
     outputParameters_t outputParameters = Simulate(simulationInputParameters);
@@ -71,8 +62,11 @@ void MainWindow::on_btnSimulate_clicked()
     // Update display
     UpdateStatistics(outputParameters);
 
+    time_t endTime = time(nullptr);
+    ShowSimulationTime(outputParameters, endTime - startTime);
+
     // Busy indicator: STOP
-    //QApplication::restoreOverrideCursor();
+    QApplication::restoreOverrideCursor();
     if (!outputParameters.isSimulationComplete)
     {
         ui->btnSimulate->setEnabled(true);
@@ -209,6 +203,9 @@ void MainWindow::ClearSimulationResults()
     // Clear population table
     ui->opPopulationTable->clearContents();
     ui->opPopulationTable->setRowCount(0);
+
+    // Clear simulation timing
+    ui->opSimulationTime->clear();
 }
 
 //---------------------------------------------------------------------------

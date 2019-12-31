@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include "simulation.h"
 #include <sstream>
+#include <thread>
 #include<time.h>
 
 // Global parameters
@@ -160,7 +161,7 @@ void ClearLogsForIteration()
 void Log(const std::string & str)
 {
     g_simulationOutputParameters.logs.push_back(str);
-    std::cout << str << std::endl;
+    //std::cout << str << std::endl;
 }
 
 //---------------------------------------------------------------------------------------------------------------
@@ -238,15 +239,8 @@ void SimulateYear()
     else
     {
         // Updates for this year
-        if (g_simulationOutputParameters.totalMalePopulation)
-        {
-            UpdatePersonList(MALE);
-        }
-
-        if (g_simulationOutputParameters.totalFemalePopulation)
-        {
-            UpdatePersonList(FEMALE);
-        }
+        UpdatePersonList(MALE);
+        UpdatePersonList(FEMALE);
     }
 
     g_simulationOutputParameters.totalYears++;
@@ -422,6 +416,11 @@ Person* CheckChildren(Person *person)
 void UpdatePersonList(Gender_t gender)
 {    
     std::vector<Person*> & personList = (gender == MALE) ? g_maleList : g_femaleList;
+    if (personList.empty())
+    {
+        return;
+    }
+
     for (auto it = personList.begin(); it < personList.end(); /* it++ done in else case */)
     {
         Person *person = *it;
