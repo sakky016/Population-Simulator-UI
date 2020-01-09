@@ -28,9 +28,9 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
-    void UpdateStatistics(const outputParameters_t outputParameters);
+
     void UpdatePopulationTable(const outputParameters_t outputParameters);
-    int AddPersonDetailsToPopulationTable(const std::vector<Person*> & populationList, int row);
+    int AddPersonDetailsToPopulationTable(const std::unordered_set<Person*> & populationList, int row);
     void ShowLogsOnOutputWindow(const outputParameters_t outputParameters);
     void ClearSimulationResults();
     void ShowSimulationTime(const outputParameters_t & outputParameters, time_t timeDifference);
@@ -45,6 +45,8 @@ private slots:
     void on_btnQuit_clicked();
 
     void on_btnRestartSimulation_clicked();
+
+    void UpdateStatistics(const outputParameters_t outputParameters);
 
 private:
     Ui::MainWindow *ui;

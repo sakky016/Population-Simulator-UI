@@ -5,19 +5,22 @@
 #include "simulation.h"
 #include <sstream>
 #include <thread>
-#include<time.h>
+#include <time.h>
 
 // Global parameters
 static inputParameters_t g_simulationInputParameters{};
 static outputParameters_t g_simulationOutputParameters{};
 
-static std::vector<Person*> g_maleList;
-static std::vector<Person*> g_femaleList;
+static std::unordered_set<Person*> g_maleList;
+static std::unordered_set<Person*> g_femaleList;
+
+static std::unordered_set<Person*> g_marriageCandidatesMale;
+static std::unordered_set<Person*> g_marriageCandidatesFemale;
 
 //---------------------------------------------------------------------------
 // Fetches population list on the basis of gender
 //---------------------------------------------------------------------------
-std::vector<Person*> & GetPopulationList(Gender_t gender)
+std::unordered_set<Person*> & GetPopulationList(Gender_t gender)
 {
     return (gender == MALE) ? g_maleList : g_femaleList;
 }
@@ -27,7 +30,7 @@ std::vector<Person*> & GetPopulationList(Gender_t gender)
 //---------------------------------------------------------------------------
 void ClearPopulationList(Gender_t gender)
 {
-    std::vector<Person*> & populationList = GetPopulationList(gender);
+    std::unordered_set<Person*> & populationList = GetPopulationList(gender);
     for (auto it = populationList.begin(); it != populationList.end(); it++)
     {
         Person *person = *it;
@@ -36,6 +39,10 @@ void ClearPopulationList(Gender_t gender)
     }
 
     populationList.clear();
+
+    g_marriageCandidatesMale.clear();
+    g_marriageCandidatesFemale.clear();
+
 }
 
 //---------------------------------------------------------------------------------------------------------------
@@ -129,11 +136,11 @@ void AddPersonToList(Person *person)
     {
         if (person->GetGender() == MALE)
         {
-            g_maleList.push_back(person);
+            g_maleList.insert(person);
         }
         else
         {
-            g_femaleList.push_back(person);
+            g_femaleList.insert(person);
         }
     }
 }
@@ -276,6 +283,9 @@ bool CheckDeath(Person *person)
 //---------------------------------------------------------------------------------------------------------------
 bool CheckMarriage(Person *person)
 {
+    auto marriageCandidateList = (person->GetGender() == MALE) ?
+                                  g_marriageCandidatesMale : g_marriageCandidatesFemale;
+
     if (person->GetSpouse() != nullptr)
     {
         // Already married
@@ -284,16 +294,19 @@ bool CheckMarriage(Person *person)
 
     Gender_t gender = person->GetGender();
     int minMarriageAge = (gender == MALE) ? g_simulationInputParameters.minMaleMarriageAge : g_simulationInputParameters.minFemaleMarriageAge;
-    if (person->GetAge() > minMarriageAge)
+    if (person->GetAge() >= minMarriageAge)
     {
         // Choose a suitor
         Gender_t partnerGender = (gender == MALE) ? FEMALE : MALE;
-        std::vector<Person*> partnerList = (partnerGender == MALE) ? g_maleList : g_femaleList;
-        for (auto it = partnerList.begin(); it < partnerList.end(); it++)
+
+        std::unordered_set<Person*> & partnerList = (partnerGender == MALE) ?
+                                                            g_marriageCandidatesMale : g_marriageCandidatesFemale;
+
+        for (auto it = partnerList.begin(); it != partnerList.end(); it++)
         {
             Person *partner = *it;
             int minMarriageAgePartner = (partnerGender == MALE) ? g_simulationInputParameters.minMaleMarriageAge : g_simulationInputParameters.minFemaleMarriageAge;
-            if (partner->GetAge() > minMarriageAgePartner &&
+            if (partner->GetAge() >= minMarriageAgePartner &&
                 partner->GetSpouse() == nullptr)
             {
                 // Found the suitor, update spouse details
@@ -301,9 +314,19 @@ bool CheckMarriage(Person *person)
                 partner->SetSpouse(person);
 
                 // Add logging
-                std::string msg(person->GetName() + " (age " + std::to_string(person->GetAge()) + ") and " + partner->GetName() + " (age " + std::to_string(partner->GetAge()) + ") " + " married.");
+                std::string msg(person->GetName() + " (age " + std::to_string(person->GetAge()) + ") and " +
+                                partner->GetName() + " (age " + std::to_string(partner->GetAge()) + ") " + " married.");
                 Log(msg);
-                return true;
+
+                // Remove partner from suitable candidates list.
+                it = partnerList.erase(it);
+
+                // Remove self from list of marriage candidates
+                auto it_person = marriageCandidateList.find(person);
+                if (it_person != marriageCandidateList.end())
+                {
+                    return true;
+                }
             }
         }
     }
@@ -407,6 +430,32 @@ Person* CheckChildren(Person *person)
 }
 
 //---------------------------------------------------------------------------------------------------------------
+// @name                                : RemoveMarriedPeopleFromCandidateList
+//
+// @description                         :
+//
+// @returns                             : Nothing
+//---------------------------------------------------------------------------------------------------------------
+void RemoveMarriedPeopleFromCandidateList(Gender_t gender)
+{
+    std::unordered_set<Person*> & marriageCandidateList = (gender == MALE) ?
+                                                           g_marriageCandidatesMale : g_marriageCandidatesFemale;
+
+    for (auto it = marriageCandidateList.begin(); it != marriageCandidateList.end(); /* it++  updated in else */)
+    {
+        Person *person = *it;
+        if (person->GetSpouse() != nullptr)
+        {
+            it = marriageCandidateList.erase(it);
+        }
+        else
+        {
+            it++;
+        }
+    }
+}
+
+//---------------------------------------------------------------------------------------------------------------
 // @name                                : UpdatePersonList
 //
 // @description                         : Simulates the changes in population in 1 year.
@@ -415,13 +464,16 @@ Person* CheckChildren(Person *person)
 //---------------------------------------------------------------------------------------------------------------
 void UpdatePersonList(Gender_t gender)
 {    
-    std::vector<Person*> & personList = (gender == MALE) ? g_maleList : g_femaleList;
+    long totalAge = 0;
+    std::unordered_set<Person*> & personList = GetPopulationList(gender);
+    std::unordered_set<Person*> & marriageCandidateList = (gender == MALE) ?
+                                                           g_marriageCandidatesMale : g_marriageCandidatesFemale;
     if (personList.empty())
     {
         return;
     }
 
-    for (auto it = personList.begin(); it < personList.end(); /* it++ done in else case */)
+    for (auto it = personList.begin(); it != personList.end(); /* it++ done in else case */)
     {
         Person *person = *it;
 
@@ -441,37 +493,63 @@ void UpdatePersonList(Gender_t gender)
             delete person;
             person = nullptr;
             it = personList.erase(it);
+
+            // Remove it from marriage candidate list
+            auto it_marriageList = marriageCandidateList.find(person);
+            if (it_marriageList != marriageCandidateList.end())
+            {
+                marriageCandidateList.erase(it_marriageList);
+            }
+
             g_simulationOutputParameters.totalDeaths++;
         }
         else
         {
+            int minMarriageAge = (gender == MALE) ? g_simulationInputParameters.minMaleMarriageAge :
+                                                    g_simulationInputParameters.minFemaleMarriageAge;
+
+            // Add this to list of candidates for marriage if unmarried and suitable age is reached.
+            if (person->GetSpouse() == nullptr &&
+                person->GetAge() >= minMarriageAge)
+            {
+                marriageCandidateList.insert(person);
+            }
+
+            totalAge += person->GetAge();
+
             it++;
         }
     } // end of for loop
 
-    // Check marriage and children
-    long totalAge = 0;
-    std::vector<Person*> babyList; // List of children born this year.
-    for (auto it = personList.begin(); it < personList.end(); it++)
+    // Check marriage, look in other gender list
+    for (auto it = marriageCandidateList.begin(); it != marriageCandidateList.end(); it++)
+    {
+        Person *candidate = *it;
+        bool bMarriedThisYear = CheckMarriage(candidate);
+    }
+
+    // Remove married people from marriageCandidateList. Since CheckMarriage() updated both male and female
+    // marriage candidate list, update them both
+    RemoveMarriedPeopleFromCandidateList(MALE);
+    RemoveMarriedPeopleFromCandidateList(FEMALE);
+
+    // Check children
+    std::unordered_set<Person*> babyList; // List of children born this year.
+    for (auto it = personList.begin(); it != personList.end(); it++)
     {
         Person *person = *it;
-
-        totalAge += person->GetAge();
-
-        // Marriage probability
-        bool bMarriedThisYear = CheckMarriage(person);
 
         // Making a baby probaility
         Person *baby = CheckChildren(person);
         if (baby)
         {
-            babyList.push_back(baby);
+            babyList.insert(baby);
         }
     }
 
 
     // Add all children born this year to their population list
-    for (auto it = babyList.begin(); it < babyList.end(); it++)
+    for (auto it = babyList.begin(); it != babyList.end(); it++)
     {
         AddPersonToList(*it);
     }
@@ -492,7 +570,8 @@ void UpdatePersonList(Gender_t gender)
     // Sex ratio
     if (g_simulationOutputParameters.totalMalePopulation != 0)
     {
-        g_simulationOutputParameters.sexRatio = (static_cast<double>(g_simulationOutputParameters.totalFemalePopulation) / g_simulationOutputParameters.totalMalePopulation) * 1000;
+        g_simulationOutputParameters.sexRatio =
+            (static_cast<double>(g_simulationOutputParameters.totalFemalePopulation) / g_simulationOutputParameters.totalMalePopulation) * 1000;
     }
     else
     {
@@ -509,10 +588,10 @@ void UpdatePersonList(Gender_t gender)
 //---------------------------------------------------------------------------------------------------------------
 void DisplayPopulationDetails(Gender_t gender)
 {
-    std::vector<Person*> personList = (gender == MALE) ? g_maleList : g_femaleList;
+    std::unordered_set<Person*> personList = GetPopulationList(gender);
     std::string genderId = (gender == MALE) ? "Male" : "Female";
     size_t index = 1;
-    for (auto it = personList.begin(); it < personList.end(); it++)
+    for (auto it = personList.begin(); it != personList.end(); it++)
     {
         Person *person = *it;
         Person *spouse = person->GetSpouse();

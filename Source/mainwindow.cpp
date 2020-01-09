@@ -1,9 +1,11 @@
+#include <future>
 #include <QThread>
 #include <QMessageBox>
 #include "mainwindow.h"
 #include "person.h"
 #include "ui_mainwindow.h"
 #include "simulation.h"
+#include <thread>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -50,27 +52,18 @@ void MainWindow::on_btnSimulate_clicked()
     simulationInputParameters.minFemaleMarriageAge = ui->inpMinFemaleMarriageAge->displayText().toInt();
     simulationInputParameters.avgLifeExpectancy = ui->inpAvgLifeExpectancy->displayText().toInt();
 
-    // Busy indicator: START
-    QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
+    qRegisterMetaType<outputParameters_t>();
+    Worker *workerThread = new Worker(simulationInputParameters);
+
+    connect(workerThread, SIGNAL(SimulationResultReady(outputParameters_t)), this, SLOT(UpdateStatistics(outputParameters_t)));
+    connect(workerThread, &Worker::finished, workerThread, &QObject::deleteLater);
+
+    // Start Simulation in a separate thread
+    workerThread->start();
+
     ui->btnSimulate->setEnabled(false);
+    ui->opSimulationTime->setText("Running simulation. Please wait...");
 
-    time_t startTime = time(nullptr);
-
-    // Execute simulation
-    outputParameters_t outputParameters = Simulate(simulationInputParameters);
-
-    // Update display
-    UpdateStatistics(outputParameters);
-
-    time_t endTime = time(nullptr);
-    ShowSimulationTime(outputParameters, endTime - startTime);
-
-    // Busy indicator: STOP
-    QApplication::restoreOverrideCursor();
-    if (!outputParameters.isSimulationComplete)
-    {
-        ui->btnSimulate->setEnabled(true);
-    }
 }
 
 //---------------------------------------------------------------------------
@@ -89,7 +82,7 @@ void MainWindow::ShowLogsOnOutputWindow(const outputParameters_t outputParameter
 //---------------------------------------------------------------------------
 // Prepare a row in the Population table
 //---------------------------------------------------------------------------
-int MainWindow::AddPersonDetailsToPopulationTable(const std::vector<Person*> & populationList, int row)
+int MainWindow::AddPersonDetailsToPopulationTable(const std::unordered_set<Person*> & populationList, int row)
 {
     for (auto it = populationList.begin(); it != populationList.end(); it++)
     {
@@ -97,21 +90,25 @@ int MainWindow::AddPersonDetailsToPopulationTable(const std::vector<Person*> & p
 
         // name
         QTableWidgetItem *nameCol = new QTableWidgetItem();
+        nameCol->setFlags(nameCol->flags() ^ Qt::ItemIsEditable);
         nameCol->setText(QString::fromUtf8(person->GetName().c_str()));
         ui->opPopulationTable->setItem(row, COLUMN_NAME, nameCol);
 
         // gender
         QTableWidgetItem *genderCol = new QTableWidgetItem();
+        genderCol->setFlags(genderCol->flags() ^ Qt::ItemIsEditable);
         genderCol->setText((person->GetGender() == MALE) ? "Male" : "Female");
         ui->opPopulationTable->setItem(row, COLUMN_GENDER, genderCol);
 
         // age
         QTableWidgetItem *ageCol = new QTableWidgetItem();
+        ageCol->setFlags(ageCol->flags() ^ Qt::ItemIsEditable);
         ageCol->setText(QString::number(person->GetAge()));
         ui->opPopulationTable->setItem(row, COLUMN_AGE, ageCol);
 
         // spouse
         QTableWidgetItem *spouseCol = new QTableWidgetItem();
+        spouseCol->setFlags(spouseCol->flags() ^ Qt::ItemIsEditable);
         Person *spouse = person->GetSpouse();
         std::string spouseName = spouse ? spouse->GetName() : "NONE";
         spouseCol->setText(QString::fromUtf8(spouseName.c_str()));
@@ -119,6 +116,7 @@ int MainWindow::AddPersonDetailsToPopulationTable(const std::vector<Person*> & p
 
         // children
         QTableWidgetItem *childrenCol = new QTableWidgetItem();
+        childrenCol->setFlags(childrenCol->flags() ^ Qt::ItemIsEditable);
         std::vector<Person*> children = person->GetChildren();
         std::string childrenNamesList;
 
@@ -160,8 +158,8 @@ void MainWindow::UpdatePopulationTable(const outputParameters_t /* outputParamet
     // First clear the table
     ui->opPopulationTable->clearContents();
 
-    std::vector<Person*> males = GetPopulationList(MALE);
-    std::vector<Person*> females = GetPopulationList(FEMALE);
+    std::unordered_set<Person*> males = GetPopulationList(MALE);
+    std::unordered_set<Person*> females = GetPopulationList(FEMALE);
 
     ui->opPopulationTable->setRowCount(static_cast<int>(males.size() + females.size()));
     ui->opPopulationTable->setColumnCount(COLUMN_MAX);
@@ -190,6 +188,20 @@ void MainWindow::UpdateStatistics(const outputParameters_t outputParameters)
 
     // Update the Population Table
     UpdatePopulationTable(outputParameters);
+
+    //time_t endTime = time(nullptr);
+    //ShowSimulationTime(outputParameters, endTime - startTime);
+
+    // Busy indicator: STOP
+    //QApplication::restoreOverrideCursor();
+    if (!outputParameters.isSimulationComplete)
+    {
+        ui->btnSimulate->setEnabled(true);
+        std::string msg = "Total population: " + std::to_string(outputParameters.totalMalePopulation + outputParameters.totalFemalePopulation);
+        msg += " | Elapsed time: " + std::to_string(outputParameters.simulationTime) + " s.";
+        ui->opSimulationTime->setText(QString::fromUtf8(msg.c_str()));
+    }
+
 }
 
 //---------------------------------------------------------------------------

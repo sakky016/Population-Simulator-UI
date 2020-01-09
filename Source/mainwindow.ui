@@ -572,22 +572,6 @@
       <string>Clear Output Window</string>
      </property>
     </widget>
-    <widget class="QPushButton" name="btnPopulationDetail">
-     <property name="geometry">
-      <rect>
-       <x>10</x>
-       <y>90</y>
-       <width>151</width>
-       <height>31</height>
-      </rect>
-     </property>
-     <property name="layoutDirection">
-      <enum>Qt::LeftToRight</enum>
-     </property>
-     <property name="text">
-      <string>Show Population Details</string>
-     </property>
-    </widget>
     <widget class="QPushButton" name="btnRestartSimulation">
      <property name="geometry">
       <rect>
@@ -728,7 +712,6 @@
   <tabstop>inpAvgLifeExpectancy</tabstop>
   <tabstop>btnSimulate</tabstop>
   <tabstop>btnClear</tabstop>
-  <tabstop>btnPopulationDetail</tabstop>
   <tabstop>opTotalBirths</tabstop>
   <tabstop>opTotalDeaths</tabstop>
   <tabstop>opTotalMales</tabstop>
