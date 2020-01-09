@@ -3,6 +3,7 @@
 
 #include "person.h"
 #include <Qthread>
+#include <QDateTime>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -81,10 +82,7 @@ public:
 
     void run() override
     {
-        time_t startTime = time(nullptr);
         outputParameters_t result = Simulate(m_input);
-        time_t endTime = time(nullptr);
-        result.simulationTime = endTime - startTime;
         emit SimulationResultReady(result);
     }
 

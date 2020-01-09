@@ -182,6 +182,8 @@ void Log(const std::string & str)
 //---------------------------------------------------------------------------------------------------------------
 outputParameters_t Simulate(const inputParameters_t & simulationInputParameters)
 {
+    time_t startTime = time(nullptr);
+
     // Update input parameter
     g_simulationInputParameters.yearsToSimulate = simulationInputParameters.yearsToSimulate;
     g_simulationInputParameters.avgFertilityRate = simulationInputParameters.avgFertilityRate;    
@@ -203,6 +205,8 @@ outputParameters_t Simulate(const inputParameters_t & simulationInputParameters)
         }
     }
 
+    time_t endTime = time(nullptr);
+    g_simulationOutputParameters.simulationTime = endTime - startTime;
     return g_simulationOutputParameters;
 }
 

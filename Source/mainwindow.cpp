@@ -57,7 +57,7 @@ void MainWindow::on_btnSimulate_clicked()
     Worker *workerThread = new Worker(simulationInputParameters);
 
     connect(workerThread, SIGNAL(SimulationResultReady(outputParameters_t)), this, SLOT(UpdateStatistics(outputParameters_t)));
-    connect(workerThread, &Worker::finished, workerThread, &QObject::deleteLater);
+    //connect(workerThread, &Worker::finished, workerThread, &QObject::deleteLater);
 
     // Start Simulation in a separate thread
     workerThread->start();
