@@ -29,8 +29,9 @@ MainWindow::~MainWindow()
 //---------------------------------------------------------------------------
 // Displays simulation timing
 //---------------------------------------------------------------------------
-void MainWindow::ShowSimulationTime(const outputParameters_t & outputParameters, time_t timeDifference)
+void MainWindow::ShowSimulationTime(const outputParameters_t & outputParameters)
 {
+    time_t timeDifference = outputParameters.simulationTime;
     std::string msg = "Time elapsed: " + std::to_string(timeDifference) + " s. " + "| " +
             "Total Population: " + std::to_string(outputParameters.totalMalePopulation + outputParameters.totalFemalePopulation);
 
@@ -60,7 +61,7 @@ void MainWindow::on_btnSimulate_clicked()
 
     // Start Simulation in a separate thread
     workerThread->start();
-
+    QApplication::setOverrideCursor(Qt::WaitCursor);
     ui->btnSimulate->setEnabled(false);
     ui->opSimulationTime->setText("Running simulation. Please wait...");
 
@@ -189,17 +190,12 @@ void MainWindow::UpdateStatistics(const outputParameters_t outputParameters)
     // Update the Population Table
     UpdatePopulationTable(outputParameters);
 
-    //time_t endTime = time(nullptr);
-    //ShowSimulationTime(outputParameters, endTime - startTime);
-
     // Busy indicator: STOP
-    //QApplication::restoreOverrideCursor();
+    QApplication::restoreOverrideCursor();
     if (!outputParameters.isSimulationComplete)
     {
         ui->btnSimulate->setEnabled(true);
-        std::string msg = "Total population: " + std::to_string(outputParameters.totalMalePopulation + outputParameters.totalFemalePopulation);
-        msg += " | Elapsed time: " + std::to_string(outputParameters.simulationTime) + " s.";
-        ui->opSimulationTime->setText(QString::fromUtf8(msg.c_str()));
+        ShowSimulationTime(outputParameters);
     }
 
 }

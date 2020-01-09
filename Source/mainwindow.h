@@ -33,7 +33,7 @@ public:
     int AddPersonDetailsToPopulationTable(const std::unordered_set<Person*> & populationList, int row);
     void ShowLogsOnOutputWindow(const outputParameters_t outputParameters);
     void ClearSimulationResults();
-    void ShowSimulationTime(const outputParameters_t & outputParameters, time_t timeDifference);
+    void ShowSimulationTime(const outputParameters_t & outputParameters);
 
 private slots:
     void on_btnSimulate_clicked();
